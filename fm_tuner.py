@@ -2,17 +2,18 @@
 ##################################################
 # Gnuradio Python Flow Graph
 # Title: Fm Tuner
-# Generated: Sun Mar  6 09:18:23 2016
+# Generated: Sun Mar  6 11:32:33 2016
 ##################################################
 
 from gnuradio import analog
-from gnuradio import audio
-from gnuradio import blocks
 from gnuradio import eng_notation
 from gnuradio import filter
 from gnuradio import gr
+from gnuradio import wxgui
 from gnuradio.eng_option import eng_option
+from gnuradio.fft import window
 from gnuradio.filter import firdes
+from gnuradio.wxgui import fftsink2
 from gnuradio.wxgui import forms
 from grc_gnuradio import wxgui as grc_wxgui
 from optparse import OptionParser
@@ -33,7 +34,7 @@ class fm_tuner(grc_wxgui.top_block_gui):
         ##################################################
         self.tuning_frequency = tuning_frequency = 90.5e6
         self.volume = volume = 1
-        self.transition = transition = 1000000
+        self.transition = transition = 500000
         self.samp_rate = samp_rate = 2000000
         self.quadrature = quadrature = 500000
         self.low_cutoff = low_cutoff = tuning_frequency-0.1e6
@@ -53,20 +54,30 @@ class fm_tuner(grc_wxgui.top_block_gui):
         self.rtlsdr_source_0.set_freq_corr(0, 0)
         self.rtlsdr_source_0.set_dc_offset_mode(2, 0)
         self.rtlsdr_source_0.set_iq_balance_mode(0, 0)
-        self.rtlsdr_source_0.set_gain_mode(False, 0)
-        self.rtlsdr_source_0.set_gain(30, 0)
+        self.rtlsdr_source_0.set_gain_mode(1, 0)
+        self.rtlsdr_source_0.set_gain(25, 0)
         self.rtlsdr_source_0.set_if_gain(20, 0)
         self.rtlsdr_source_0.set_bb_gain(20, 0)
         self.rtlsdr_source_0.set_antenna("", 0)
         self.rtlsdr_source_0.set_bandwidth(0, 0)
           
         self.analog_probe_avg_mag_sqrd_x_0 = analog.probe_avg_mag_sqrd_c(0, 1)
-        self.rational_resampler_xxx_1 = filter.rational_resampler_fff(
-                interpolation=2000,
-                decimation=500,
-                taps=None,
-                fractional_bw=None,
+        self.wxgui_fftsink2_0 = fftsink2.fft_sink_c(
+        	self.GetWin(),
+        	baseband_freq=0,
+        	y_per_div=10,
+        	y_divs=10,
+        	ref_level=0,
+        	ref_scale=2.0,
+        	sample_rate=samp_rate,
+        	fft_size=1024,
+        	fft_rate=15,
+        	average=False,
+        	avg_alpha=None,
+        	title="FFT Plot",
+        	peak_hold=False,
         )
+        self.Add(self.wxgui_fftsink2_0.win)
         self.rational_resampler_xxx_0 = filter.rational_resampler_ccc(
                 interpolation=1,
                 decimation=4,
@@ -107,7 +118,6 @@ class fm_tuner(grc_wxgui.top_block_gui):
         _center_freq_probe_thread = threading.Thread(target=_center_freq_probe_probe)
         _center_freq_probe_thread.daemon = True
         _center_freq_probe_thread.start()
-        self.blocks_multiply_const_vxx_0 = blocks.multiply_const_vff((volume, ))
         def _ave_mag_probe_probe():
         	while True:
         		val = self.analog_probe_avg_mag_sqrd_x_0.level()
@@ -117,22 +127,16 @@ class fm_tuner(grc_wxgui.top_block_gui):
         _ave_mag_probe_thread = threading.Thread(target=_ave_mag_probe_probe)
         _ave_mag_probe_thread.daemon = True
         _ave_mag_probe_thread.start()
-        self.audio_sink_0 = audio.sink(samp_rate, "", True)
-        self.analog_wfm_rcv_0 = analog.wfm_rcv(
-        	quad_rate=quadrature,
-        	audio_decimation=audio_decimation,
-        )
+        self.analog_simple_squelch_cc_0 = analog.simple_squelch_cc(-60, 1)
 
         ##################################################
         # Connections
         ##################################################
-        self.connect((self.analog_wfm_rcv_0, 0), (self.rational_resampler_xxx_1, 0))
-        self.connect((self.blocks_multiply_const_vxx_0, 0), (self.audio_sink_0, 0))
-        self.connect((self.low_pass_filter_0, 0), (self.analog_wfm_rcv_0, 0))
-        self.connect((self.rational_resampler_xxx_1, 0), (self.blocks_multiply_const_vxx_0, 0))
-        self.connect((self.rational_resampler_xxx_0, 0), (self.low_pass_filter_0, 0))
         self.connect((self.rtlsdr_source_0, 0), (self.rational_resampler_xxx_0, 0))
-        self.connect((self.rtlsdr_source_0, 0), (self.analog_probe_avg_mag_sqrd_x_0, 0))
+        self.connect((self.rational_resampler_xxx_0, 0), (self.low_pass_filter_0, 0))
+        self.connect((self.low_pass_filter_0, 0), (self.analog_simple_squelch_cc_0, 0))
+        self.connect((self.analog_simple_squelch_cc_0, 0), (self.wxgui_fftsink2_0, 0))
+        self.connect((self.analog_simple_squelch_cc_0, 0), (self.analog_probe_avg_mag_sqrd_x_0, 0))
 
 
 # QT sink close method reimplementation
@@ -153,7 +157,6 @@ class fm_tuner(grc_wxgui.top_block_gui):
 
     def set_volume(self, volume):
         self.volume = volume
-        self.blocks_multiply_const_vxx_0.set_k((self.volume, ))
 
     def get_transition(self):
         return self.transition
@@ -169,6 +172,7 @@ class fm_tuner(grc_wxgui.top_block_gui):
         self.samp_rate = samp_rate
         self.low_pass_filter_0.set_taps(firdes.low_pass(1, self.samp_rate, self.cutoff, self.transition, firdes.WIN_HAMMING, 6.76))
         self.rtlsdr_source_0.set_sample_rate(self.samp_rate)
+        self.wxgui_fftsink2_0.set_sample_rate(self.samp_rate)
 
     def get_quadrature(self):
         return self.quadrature
