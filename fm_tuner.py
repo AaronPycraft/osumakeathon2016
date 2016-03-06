@@ -1,20 +1,9 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python
 ##################################################
-# GNU Radio Python Flow Graph
+# Gnuradio Python Flow Graph
 # Title: Fm Tuner
-# Generated: Sun Mar  6 02:37:13 2016
+# Generated: Sun Mar  6 03:00:21 2016
 ##################################################
-
-if __name__ == '__main__':
-    import ctypes
-    import sys
-    if sys.platform.startswith('linux'):
-        try:
-            x11 = ctypes.cdll.LoadLibrary('libX11.so')
-            x11.XInitThreads()
-        except:
-            print "Warning: failed to XInitThreads()"
 
 from gnuradio import analog
 from gnuradio import audio
@@ -28,9 +17,9 @@ from gnuradio.wxgui import forms
 from grc_gnuradio import wxgui as grc_wxgui
 from optparse import OptionParser
 import osmosdr
-import time
 import wx
 
+from threading import Timer
 
 class fm_tuner(grc_wxgui.top_block_gui):
 
@@ -82,7 +71,7 @@ class fm_tuner(grc_wxgui.top_block_gui):
         self.rtlsdr_source_0 = osmosdr.source( args="numchan=" + str(1) + " " + "" )
         self.rtlsdr_source_0.set_sample_rate(samp_rate)
         self.rtlsdr_source_0.set_center_freq(tuning_frequency, 0)
-        self.rtlsdr_source_0.set_freq_corr(0, 0)
+        self.rtlsdr_source_0.set_freq_corr(-0.1, 0.1)
         self.rtlsdr_source_0.set_dc_offset_mode(2, 0)
         self.rtlsdr_source_0.set_iq_balance_mode(0, 0)
         self.rtlsdr_source_0.set_gain_mode(False, 0)
@@ -139,12 +128,15 @@ class fm_tuner(grc_wxgui.top_block_gui):
         ##################################################
         # Connections
         ##################################################
-        self.connect((self.analog_wfm_rcv_0, 0), (self.rational_resampler_xxx_1, 0))    
-        self.connect((self.blocks_multiply_const_vxx_0, 0), (self.audio_sink_0, 0))    
-        self.connect((self.low_pass_filter_0, 0), (self.analog_wfm_rcv_0, 0))    
-        self.connect((self.rational_resampler_xxx_0, 0), (self.low_pass_filter_0, 0))    
-        self.connect((self.rational_resampler_xxx_1, 0), (self.blocks_multiply_const_vxx_0, 0))    
-        self.connect((self.rtlsdr_source_0, 0), (self.rational_resampler_xxx_0, 0))    
+        self.connect((self.analog_wfm_rcv_0, 0), (self.rational_resampler_xxx_1, 0))
+        self.connect((self.blocks_multiply_const_vxx_0, 0), (self.audio_sink_0, 0))
+        self.connect((self.low_pass_filter_0, 0), (self.analog_wfm_rcv_0, 0))
+        self.connect((self.rational_resampler_xxx_1, 0), (self.blocks_multiply_const_vxx_0, 0))
+        self.connect((self.rational_resampler_xxx_0, 0), (self.low_pass_filter_0, 0))
+        self.connect((self.rtlsdr_source_0, 0), (self.rational_resampler_xxx_0, 0))
+
+
+# QT sink close method reimplementation
 
     def get_tuning_frequency(self):
         return self.tuning_frequency
@@ -175,8 +167,8 @@ class fm_tuner(grc_wxgui.top_block_gui):
 
     def set_samp_rate(self, samp_rate):
         self.samp_rate = samp_rate
-        self.low_pass_filter_0.set_taps(firdes.low_pass(1, self.samp_rate, self.cutoff, self.transition, firdes.WIN_HAMMING, 6.76))
         self.rtlsdr_source_0.set_sample_rate(self.samp_rate)
+        self.low_pass_filter_0.set_taps(firdes.low_pass(1, self.samp_rate, self.cutoff, self.transition, firdes.WIN_HAMMING, 6.76))
 
     def get_quadrature(self):
         return self.quadrature
@@ -217,13 +209,28 @@ class fm_tuner(grc_wxgui.top_block_gui):
     def set_audio_decimation(self, audio_decimation):
         self.audio_decimation = audio_decimation
 
-
-def main(top_block_cls=fm_tuner, options=None):
-
-    tb = top_block_cls()
-    tb.Start(True)
-    tb.Wait()
-
-
 if __name__ == '__main__':
-    main()
+    """import ctypes
+    import os
+    if os.name == 'posix':
+        try:
+            x11 = ctypes.cdll.LoadLibrary('libX11.so')
+            x11.XInitThreads()
+        except:
+            print "Warning: failed to XInitThreads()"
+    parser = OptionParser(option_class=eng_option, usage="%prog: [options]")
+    (options, args) = parser.parse_args()"""
+    tb = fm_tuner()
+
+    def change_freq(new_freq):
+        tb.rtlsdr_source_0.set_center_freq(new_freq)
+
+    timer = Timer(10, change_freq, args=[92.3e6])
+    timer.start()
+
+    tb.Start(True)
+    # tb.Wait()
+    import time
+    while True:
+        time.sleep(0.05)
+
