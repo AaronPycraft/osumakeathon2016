@@ -2,7 +2,7 @@
 ##################################################
 # Gnuradio Python Flow Graph
 # Title: Fm Tuner
-# Generated: Sun Mar  6 05:26:26 2016
+# Generated: Sun Mar  6 09:18:23 2016
 ##################################################
 
 from gnuradio import analog
@@ -61,29 +61,6 @@ class fm_tuner(grc_wxgui.top_block_gui):
         self.rtlsdr_source_0.set_bandwidth(0, 0)
           
         self.analog_probe_avg_mag_sqrd_x_0 = analog.probe_avg_mag_sqrd_c(0, 1)
-        _volume_sizer = wx.BoxSizer(wx.VERTICAL)
-        self._volume_text_box = forms.text_box(
-        	parent=self.GetWin(),
-        	sizer=_volume_sizer,
-        	value=self.volume,
-        	callback=self.set_volume,
-        	label="Volume",
-        	converter=forms.float_converter(),
-        	proportion=0,
-        )
-        self._volume_slider = forms.slider(
-        	parent=self.GetWin(),
-        	sizer=_volume_sizer,
-        	value=self.volume,
-        	callback=self.set_volume,
-        	minimum=0,
-        	maximum=100,
-        	num_steps=100,
-        	style=wx.SL_HORIZONTAL,
-        	cast=float,
-        	proportion=1,
-        )
-        self.Add(_volume_sizer)
         self.rational_resampler_xxx_1 = filter.rational_resampler_fff(
                 interpolation=2000,
                 decimation=500,
@@ -130,7 +107,7 @@ class fm_tuner(grc_wxgui.top_block_gui):
         _center_freq_probe_thread = threading.Thread(target=_center_freq_probe_probe)
         _center_freq_probe_thread.daemon = True
         _center_freq_probe_thread.start()
-        self.blocks_multiply_const_vxx_0 = blocks.multiply_const_vff((1, ))
+        self.blocks_multiply_const_vxx_0 = blocks.multiply_const_vff((volume, ))
         def _ave_mag_probe_probe():
         	while True:
         		val = self.analog_probe_avg_mag_sqrd_x_0.level()
@@ -165,8 +142,8 @@ class fm_tuner(grc_wxgui.top_block_gui):
 
     def set_tuning_frequency(self, tuning_frequency):
         self.tuning_frequency = tuning_frequency
-        self.set_low_cutoff(self.tuning_frequency-0.1e6)
         self.set_high_cutoff(self.tuning_frequency+0.1e6)
+        self.set_low_cutoff(self.tuning_frequency-0.1e6)
         self.set_frequency(self.tuning_frequency)
         self.rtlsdr_source_0.set_center_freq(self.tuning_frequency, 0)
         self.rtlsdr_source_0.set_center_freq(self.tuning_frequency, 1)
@@ -176,8 +153,7 @@ class fm_tuner(grc_wxgui.top_block_gui):
 
     def set_volume(self, volume):
         self.volume = volume
-        self._volume_slider.set_value(self.volume)
-        self._volume_text_box.set_value(self.volume)
+        self.blocks_multiply_const_vxx_0.set_k((self.volume, ))
 
     def get_transition(self):
         return self.transition
